@@ -62,7 +62,7 @@ def _serialize_duration(value: datetime.timedelta) -> str:
 class TravelMode(ApiStrEnum):
     """A travel mode.
 
-    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/top-level/Console/computeRoutes
+    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/RouteTravelMode
     """
 
     TRAVEL_MODE_UNSPECIFIED = "TRAVEL_MODE_UNSPECIFIED"
@@ -70,13 +70,14 @@ class TravelMode(ApiStrEnum):
     BICYCLE = "BICYCLE"
     WALK = "WALK"
     TWO_WHEELER = "TWO_WHEELER"
+    TRUCK = "TRUCK"
     TRANSIT = "TRANSIT"
 
 
 class RoutingPreference(ApiStrEnum):
     """An enum that specifies factors to take into consideration when calculating routes.
 
-    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/top-level/Console/computeRoutes
+    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/RoutingPreference
     """
 
     ROUTING_PREFERENCE_UNSPECIFIED = "ROUTING_PREFERENCE_UNSPECIFIED"
@@ -88,7 +89,7 @@ class RoutingPreference(ApiStrEnum):
 class Units(ApiStrEnum):
     """A unit of measurement.
 
-    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/top-level/Console/computeRoutes
+    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/Units
     """
 
     UNITS_UNSPECIFIED = "UNITS_UNSPECIFIED"
@@ -99,7 +100,7 @@ class Units(ApiStrEnum):
 class TrafficModel(ApiStrEnum):
     """The assumptions to use when calculating time in traffic.
 
-    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/top-level/Console/computeRoutes
+    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/TrafficModel
     """
 
     TRAFFIC_MODEL_UNSPECIFIED = "TRAFFIC_MODEL_UNSPECIFIED"
@@ -111,7 +112,7 @@ class TrafficModel(ApiStrEnum):
 class TransitRoutingPreference(ApiStrEnum):
     """Specifies preferences for transit routes.
 
-    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/top-level/Console/computeRoutes
+    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/TransitPreferences
     """
 
     TRANSIT_ROUTING_PREFERENCE_UNSPECIFIED = "TRANSIT_ROUTING_PREFERENCE_UNSPECIFIED"
@@ -122,7 +123,7 @@ class TransitRoutingPreference(ApiStrEnum):
 class TransitTravelMode(ApiStrEnum):
     """A transit travel mode.
 
-    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/top-level/Console/computeRoutes
+    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/TransitPreferences
     """
 
     TRANSIT_TRAVEL_MODE_UNSPECIFIED = "TRANSIT_TRAVEL_MODE_UNSPECIFIED"
@@ -245,7 +246,7 @@ class Route(BaseModel):
 class ComputeRoutesResponse(BaseModel):
     """ComputeRoutes response message.
 
-    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/top-level/Console/computeRoutes
+    See https://developers.google.com/maps/documentation/routes/reference/rest/v2/TopLevel/computeRoutes
     """
 
     routes: list[Route] = field(default_factory=list)
