@@ -83,8 +83,8 @@ class GoogleMapsRoutingApi:
 
     @staticmethod
     def _build_payload(
-        origin: Waypoint | str,
-        destination: Waypoint | str,
+        origin: Waypoint | str | dict[str, Any],
+        destination: Waypoint | str | dict[str, Any],
         travel_mode: TravelMode | str,
         routing_preference: RoutingPreference | str | None,
         departure_time: dt.datetime | None,
@@ -139,8 +139,8 @@ class GoogleMapsRoutingApi:
     async def async_compute_routes(
         self,
         *,
-        origin: Waypoint | str,
-        destination: Waypoint | str,
+        origin: Waypoint | str | dict[str, Any],
+        destination: Waypoint | str | dict[str, Any],
         travel_mode: TravelMode | str = TravelMode.DRIVE,
         routing_preference: RoutingPreference | str | None = None,
         departure_time: dt.datetime | None = None,
@@ -201,24 +201,26 @@ class GoogleMapsRoutingApi:
                 headers=headers,
                 timeout=self.timeout,
             ) as resp:
-                body = await resp.json()
-                res: dict[str, Any] = body if isinstance(body, dict) else {}
                 _LOGGER.debug("Got %s for %s", resp.status, url)
-                if resp.status != HTTPStatus.OK:
-                    error_data = res.get("error", {})
-                    error_msg = error_data.get("message", "Unknown API error")
-                    status = error_data.get("status")
-                    reason = next(
-                        (detail.get("reason") for detail in error_data.get("details", []) if detail.get("reason")),
-                        None,
-                    )
-                    if resp.status == HTTPStatus.GATEWAY_TIMEOUT:
-                        raise GoogleMapsRoutingApiConnectionTimeoutError(error_msg)
-                    if resp.status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN) or reason == "API_KEY_INVALID":
-                        raise GoogleMapsRoutingApiAuthError(error_msg, status=status, reason=reason)
-                    raise GoogleMapsRoutingApiResponseError(error_msg, status=status, reason=reason)
-                return ComputeRoutesResponse.from_dict(res)
+                status_code = resp.status
+                body = None if status_code == HTTPStatus.GATEWAY_TIMEOUT else await resp.json()
         except TimeoutError as err:
             raise GoogleMapsRoutingApiConnectionTimeoutError("Timeout") from err
         except aiohttp.ClientError as err:
             raise GoogleMapsRoutingApiConnectionError(err) from err
+
+        if status_code == HTTPStatus.GATEWAY_TIMEOUT:
+            raise GoogleMapsRoutingApiConnectionTimeoutError("Timeout")
+        res: dict[str, Any] = body if isinstance(body, dict) else {}
+        if status_code != HTTPStatus.OK:
+            error_data = res.get("error", {})
+            error_msg = error_data.get("message", "Unknown API error")
+            status = error_data.get("status")
+            reason = next(
+                (detail.get("reason") for detail in error_data.get("details", []) if detail.get("reason")),
+                None,
+            )
+            if status_code in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN) or reason == "API_KEY_INVALID":
+                raise GoogleMapsRoutingApiAuthError(error_msg, status=status, reason=reason)
+            raise GoogleMapsRoutingApiResponseError(error_msg, status=status, reason=reason)
+        return ComputeRoutesResponse.from_dict(res)

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import datetime
 import logging
+import os
 import re
 from http import HTTPStatus
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -159,7 +161,7 @@ async def test_waypoint_forms(api: GoogleMapsRoutingApi, mock_server: MockServer
         origin=Waypoint(location=Location(lat_lng=LatLng(latitude=ORIGIN_LAT, longitude=ORIGIN_LNG))),
         destination=DESTINATION_ADDRESS,
     )
-    origin_dict: Any = {"address": ORIGIN_ADDRESS}
+    origin_dict = {"address": ORIGIN_ADDRESS}
     await api.async_compute_routes(origin=origin_dict, destination=DESTINATION_ADDRESS)
 
     lat_lng, address, model, passthrough = (request.json["origin"] for request in mock_server.requests)
@@ -393,12 +395,16 @@ async def test_error_responses(
     assert error.status == expected_api_status
 
 
-async def test_gateway_timeout_is_a_timeout_error(api: GoogleMapsRoutingApi, mock_server: MockServer) -> None:
-    """Test an HTTP 504 is reported as a timeout, like a client side timeout."""
-    mock_server.add_response(
+@pytest.mark.parametrize(
+    "payload",
+    [
         {"error": {"code": 504, "message": "Deadline expired.", "status": "DEADLINE_EXCEEDED"}},
-        status=HTTPStatus.GATEWAY_TIMEOUT,
-    )
+        "<html>504 Gateway Timeout</html>",
+    ],
+)
+async def test_gateway_timeout_is_a_timeout_error(api: GoogleMapsRoutingApi, mock_server: MockServer, payload: Any) -> None:
+    """Test an HTTP 504 is reported as a timeout, like a client side timeout."""
+    mock_server.add_response(payload, status=HTTPStatus.GATEWAY_TIMEOUT)
 
     with pytest.raises(GoogleMapsRoutingApiConnectionTimeoutError, match="Timeout") as exc_info:
         await api.async_compute_routes(origin=ORIGIN_ADDRESS, destination=DESTINATION_ADDRESS)
@@ -484,3 +490,43 @@ async def test_api_key_is_not_logged(
 
     assert "computeRoutes" in caplog.text
     assert API_KEY not in caplog.text
+
+
+def _load_dotenv() -> dict[str, str]:
+    """Load credentials from .env or environment variables."""
+    env: dict[str, str] = {}
+    env_file = Path(__file__).resolve().parent.parent / ".env"
+    if env_file.is_file():
+        for raw_line in env_file.read_text().splitlines():
+            line = raw_line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                env[key.strip()] = value.strip()
+    for key in ("GOOGLE_API_KEY", "GOOGLE_REFERRER"):
+        if val := os.environ.get(key):
+            env[key] = val
+    return env
+
+
+@pytest.mark.network
+async def test_live_compute_routes(session: aiohttp.ClientSession) -> None:
+    """Test computing routes against the live Google Maps Routes API using .env credentials."""
+    env = _load_dotenv()
+    api_key = env.get("GOOGLE_API_KEY")
+    if not api_key:
+        pytest.skip("GOOGLE_API_KEY not set in .env or environment")
+    client = GoogleMapsRoutingApi(
+        session=session,
+        api_key=api_key,
+        referrer=env.get("GOOGLE_REFERRER"),
+    )
+    response = await client.async_compute_routes(
+        origin=ORIGIN_ADDRESS,
+        destination=DESTINATION_ADDRESS,
+    )
+    assert len(response.routes) >= 1
+    route = response.routes[0]
+    assert route.duration is not None
+    assert route.duration.total_seconds() > 0
+    assert route.distance_meters is not None
+    assert route.distance_meters > 0
